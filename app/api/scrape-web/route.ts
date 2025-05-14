@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     $("script").remove();
     $("style").remove();
     $("noscript").remove();
-    $("iframe").remove();
+    // $("iframe").remove(); // Keep iframes to check for maps
     $('[class*="cookie"]').remove();
     $('[class*="ad-"]').remove();
     $('[class*="advertisement"]').remove();
@@ -71,6 +71,7 @@ export async function GET(request: Request) {
       location: "",
       price: "",
       images: [] as { src: string; alt?: string }[],
+      coordinates: {} as { lat?: string; lon?: string }, // Added for map coordinates
     };
 
     // Get title (first h1 or title tag)
@@ -169,6 +170,53 @@ export async function GET(request: Request) {
           img.src.length > 10
       );
 
+    // Extract Google Maps coordinates
+    let mapUrl: string | undefined = undefined;
+
+    // Check actual iframes
+    $("iframe").each((_, elem) => {
+      const src = $(elem).attr("src");
+      if (src && src.includes("https://www.google.com/maps")) {
+        mapUrl = src;
+        return false; // Exit loop once a map URL is found
+      }
+    });
+
+    // If not found in iframes, check divs with data-lazy-iframe-url
+    if (!mapUrl) {
+      $("div[data-lazy-iframe-url]").each((_, elem) => {
+        const lazySrc = $(elem).attr("data-lazy-iframe-url");
+        if (lazySrc && lazySrc.includes("https://www.google.com/maps")) {
+          mapUrl = lazySrc;
+          return false; // Exit loop once a map URL is found
+        }
+      });
+    }
+
+    if (mapUrl) {
+      try {
+        // Using WHATWG URL parser, available globally in Node.js and modern browsers
+        const urlObj = new URL(mapUrl);
+        const qParam = urlObj.searchParams.get("q");
+        if (qParam) {
+          const parts = qParam.split(",");
+          if (parts.length === 2) {
+            const lat = parseFloat(parts[0]);
+            const lon = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lon)) {
+              contentData.coordinates = {
+                lat: lat.toString(),
+                lon: lon.toString(),
+              };
+            }
+          }
+        }
+      } catch (e) {
+        // Log error if URL parsing fails, but don't crash the scraper
+        console.warn("Could not parse map URL for coordinates:", mapUrl, e);
+      }
+    }
+
     // Remove duplicates and clean arrays
     contentData.details = [...new Set(contentData.details)];
     contentData.features = [...new Set(contentData.features)];
@@ -195,6 +243,9 @@ export async function GET(request: Request) {
         featuresCount: contentData.features.length,
         amenitiesCount: contentData.amenities.length,
         imagesCount: contentData.images.length,
+        coordinatesFound: !!(
+          contentData.coordinates.lat && contentData.coordinates.lon
+        ),
       },
     });
   } catch (error) {

@@ -218,7 +218,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      result: JSON.parse(response.output_text),
+      result: {
+        ...JSON.parse(response.output_text),
+        latitude: scrapeData.coordinates.lat,
+        longitude: scrapeData.coordinates.lon,
+      },
     });
   } catch (error) {
     console.error("OpenAI API error:", error);
