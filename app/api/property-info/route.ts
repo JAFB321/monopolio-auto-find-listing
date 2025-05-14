@@ -17,6 +17,8 @@ export async function POST(request: Request) {
     );
     const scrapeData = await scrapeResponse.json();
 
+    console.log(JSON.stringify(scrapeData));
+
     if (!scrapeData) {
       return NextResponse.json(
         { error: "No data from scrapping" },
@@ -70,9 +72,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("OpenAI API error:", error);
-    return NextResponse.json(
-      { error: "Error processing your request" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error }, { status: 500 });
   }
 }
