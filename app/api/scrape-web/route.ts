@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import puppeteer from "puppeteer";
 import * as cheerio from "cheerio";
 
 export async function GET(request: Request) {
@@ -14,31 +13,32 @@ export async function GET(request: Request) {
       );
     }
 
-    // Launch browser and get page content
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-    const page = await browser.newPage();
+    const apiKey = process.env.SCRAPINGBEE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "SCRAPINGBEE_API_KEY is not set" },
+        { status: 500 }
+      );
+    }
 
-    // Set viewport and user agent
-    await page.setViewport({ width: 1920, height: 1080 });
-    await page.setUserAgent(
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    );
+    const scrapingBeeUrl = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(
+      url
+    )}`;
 
-    console.log("Navigating to URL:", url);
-    await page.goto(url, {
-      waitUntil: "networkidle2",
-      timeout: 30000,
-    });
-
-    // Wait for the main content to load
-    await page.waitForSelector("body", { timeout: 5000 });
-
-    // Get the full HTML content
-    const content = await page.content();
-    await browser.close();
+    const response = await fetch(scrapingBeeUrl);
+    if (!response.ok) {
+      // Manejar error de la API de ScrapingBee
+      const errorData = await response.text();
+      console.error("ScrapingBee API error:", errorData);
+      return NextResponse.json(
+        {
+          error: "Failed to fetch content via ScrapingBee",
+          details: errorData,
+        },
+        { status: response.status }
+      );
+    }
+    const content = await response.text(); // El HTML de la página
 
     // Load content into Cheerio
     const $ = cheerio.load(content);
