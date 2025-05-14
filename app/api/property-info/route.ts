@@ -42,7 +42,7 @@ export async function POST(request: Request) {
           content: [
             {
               type: "input_text",
-              text: scrapeData,
+              text: JSON.stringify(scrapeData),
             },
           ],
         },
